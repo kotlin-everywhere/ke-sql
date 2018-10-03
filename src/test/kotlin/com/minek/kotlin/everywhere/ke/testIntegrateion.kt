@@ -13,7 +13,9 @@ class TestIntegration {
     fun testConnection() = runBlocking {
         val engine = Engine(database = "ke-sql-test", user = System.getProperty("user.name"))
         val session = engine.session()
-        val res = session.select(1.v plus 2.v).maybeOne()
-        assertEquals(3, res?.component1())
+        val (answer) = session
+                .select(1.v plus 2.v)
+                .one()
+        assertEquals(3, answer)
     }
 }

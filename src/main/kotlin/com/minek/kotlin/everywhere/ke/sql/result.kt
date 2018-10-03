@@ -10,7 +10,7 @@ open class Result(private val row: Row, private val values: List<RowGetter<*>>) 
 
 class Result1<T1>(row: Row, values: List<RowGetter<*>>) : Result(row, values) {
     @Suppress("UNCHECKED_CAST")
-    fun component1(): T1 = get(0) as T1
+    operator fun component1(): T1 = get(0) as T1
 }
 
 interface RowGetter<T> {
