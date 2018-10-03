@@ -4,7 +4,7 @@ import io.reactiverse.pgclient.Row
 
 open class Result(private val row: Row, private val values: List<RowGetter<*>>) {
     operator fun get(index: Int): Any? {
-        return values[index].get(row, index)
+        return values[index].get(row, index).second
     }
 }
 
@@ -14,5 +14,5 @@ class Result1<T1>(row: Row, values: List<RowGetter<*>>) : Result(row, values) {
 }
 
 interface RowGetter<T> {
-    fun get(row: Row, index: Int): T
+    fun get(row: Row, index: Int): Pair<Int, T>
 }

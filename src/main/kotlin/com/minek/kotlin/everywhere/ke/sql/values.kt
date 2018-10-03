@@ -5,7 +5,7 @@ import io.reactiverse.pgclient.Row
 abstract class Value<T> : SelectValue<T>
 
 data class IntValue(private val int: Int) : Value<Int>() {
-    override fun get(row: Row, index: Int): Int = row.getInteger(index)
+    override fun get(row: Row, index: Int): Pair<Int, Int> = 1 to row.getInteger(index)
 
     override fun queryPair(index: Int): Pair<String, List<Int>> {
         return "\$$index::int" to listOf(int)
@@ -19,7 +19,7 @@ val Int.v: Value<Int>
 sealed class Expression<T> : Value<T>()
 
 data class Plus<T>(val left: Value<T>, val right: Value<T>) : Expression<T>() {
-    override fun get(row: Row, index: Int): T = left.get(row, index)
+    override fun get(row: Row, index: Int): Pair<Int, T> = left.get(row, index)
 
     override fun queryPair(index: Int): Pair<String, List<T>> {
         val (leftSql, leftValues) = left.queryPair(index)

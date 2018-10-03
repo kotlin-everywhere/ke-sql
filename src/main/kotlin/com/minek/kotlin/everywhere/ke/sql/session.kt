@@ -13,9 +13,10 @@ class Session(private val client: PgPool) {
             select(values, ::Result)
 
     internal fun <T : Result> select(values: List<SelectValue<*>>, mapper: (Row, List<RowGetter<*>>) -> T) =
-            Select(this, values, mapper)
+            Select(this, values, null, null, mapper)
 
     internal suspend fun preparedQuery(sql: String, arguments: List<Any?>): PgRowSet {
+        println("sql = ${sql}")
         val deferred = CompletableDeferred<AsyncResult<PgRowSet>>()
         client.preparedQuery(sql, ArrayTuple(arguments)) { deferred.complete(it) }
         val result = deferred.await()
