@@ -4,3 +4,4 @@ build/
 
 # intellij
 .idea/
+out/
