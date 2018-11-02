@@ -39,6 +39,7 @@ class TestIntegration {
                 .orderBy(Person.pk)
                 .all()
                 .map { it.component1() }
+                .toList()
         assertEquals(2, people.size)
 
         val john = people[0]

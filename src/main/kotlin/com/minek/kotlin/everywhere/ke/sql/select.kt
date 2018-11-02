@@ -33,8 +33,8 @@ data class Select<T : Result>(
         return mapper(row, values)
     }
 
-    suspend fun all(): List<T> {
-        return query().map { mapper(it, values) }
+    suspend fun all(): Sequence<T> {
+        return query().asSequence().map { mapper(it, values) }
     }
 
     private suspend fun query(): PgRowSet {
