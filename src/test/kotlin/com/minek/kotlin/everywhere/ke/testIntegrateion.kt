@@ -1,7 +1,7 @@
 package com.minek.kotlin.everywhere.ke
 
 import com.minek.kotlin.everywhere.ke.sql.*
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

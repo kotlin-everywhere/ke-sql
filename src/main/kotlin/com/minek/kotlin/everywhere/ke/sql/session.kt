@@ -5,7 +5,7 @@ import io.reactiverse.pgclient.PgRowSet
 import io.reactiverse.pgclient.Row
 import io.reactiverse.pgclient.impl.ArrayTuple
 import io.vertx.core.AsyncResult
-import kotlinx.coroutines.experimental.CompletableDeferred
+import kotlinx.coroutines.CompletableDeferred
 
 
 class Session(private val client: PgPool) {
