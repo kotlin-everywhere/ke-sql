@@ -14,4 +14,6 @@ class Engine(database: String, user: String, maxSize: Int = 5) {
     fun session(): Session {
         return Session(client = client)
     }
+
+    fun close() = client.close()
 }
