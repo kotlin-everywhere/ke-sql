@@ -6,7 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class TestIntegration {
-    private val engine = Engine(database = "ke-sql-test", user = System.getProperty("user.name"))
+    private val engine = Engine(database = "ke-sql-test", user = System.getProperty("user.name"), host = "/tmp")
 
     @Test
     fun testOnePlus2() = runBlocking {
