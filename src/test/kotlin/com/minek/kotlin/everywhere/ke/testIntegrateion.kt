@@ -19,8 +19,8 @@ class TestIntegration {
     }
 
 
-    private class Person : Table() {
-        val pk by Person.pk
+    class Person : Table() {
+        var pk by Person.pk
         var name by Person.name
 
         companion object : TableMeta<Person>() {
@@ -30,7 +30,24 @@ class TestIntegration {
     }
 
     @Test
-    fun testTableSelect() = runBlocking {
+    fun testCrud() = runBlocking {
+        // delete previous data
+        engine.session().run {
+            select(Person)
+                    .from(Person)
+                    .all()
+                    .map { it.component1() }
+                    .forEach { delete(it) }
+            flush()
+        }
+
+        // Insert
+        engine.session().run {
+            add(Person().apply { pk = 1; name = "john" })
+            add(Person().apply { pk = 2; name = "jane" })
+            flush()
+        }
+
         val session = engine.session()
         // 기본 Table Select 테스트
         val people = session
@@ -48,37 +65,20 @@ class TestIntegration {
         val jane = people[1]
         assertEquals(2, jane.pk)
         assertEquals("jane", jane.name)
-    }
 
-    class Job : Table() {
-        var pk by Job.pk
-        var name by Job.name
+        session.delete(jane)
+        session.flush()
 
-        companion object : TableMeta<Job>() {
-            val pk = column(IntType, primaryKey = true, autoIncrement = true)
-            val name = column(StringType, default = "")
-        }
-    }
-
-    @Test
-    fun testInsert() = runBlocking {
         engine.session().run {
-            add(Job().apply { pk = 1; name = "Pianist" })
-            add(Job().apply { pk = 2; name = "Cook" })
-            flush()
+            val person = select(Person)
+                    .from(Person)
+                    .all()
+                    .map { it.component1() }
+                    .toList()
+
+            assertEquals(1, person.size)
+            assertEquals(1, person[0].pk)
+            assertEquals("john", person[0].name)
         }
-
-        val jobs = engine.session()
-                .select(Job)
-                .from(Job)
-                .all()
-                .map { it.component1() }
-                .toList()
-
-        assertEquals(2, jobs.size)
-        assertEquals(1, jobs[0].pk)
-        assertEquals("Pianist", jobs[0].name)
-        assertEquals(2, jobs[1].pk)
-        assertEquals("Cook", jobs[1].name)
     }
 }

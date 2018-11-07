@@ -3,7 +3,10 @@ package com.minek.kotlin.everywhere.ke.sql
 import io.reactiverse.pgclient.Row
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
-import kotlin.reflect.full.*
+import kotlin.reflect.full.companionObjectInstance
+import kotlin.reflect.full.isSubclassOf
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.jvmName
 
@@ -54,6 +57,7 @@ internal class TableMetaData<T : TableMeta<*>>(meta: T) {
                         }
                     }
     internal val createInstance = Class.forName(meta::class.jvmName.removeSuffix("\$Companion")).kotlin.primaryConstructor!!.apply { isAccessible = true }
+    internal val primaryKey by lazy { columns.first { it.primaryKey } }
 }
 
 abstract class Table {
@@ -69,6 +73,6 @@ class TableInstance(private val table: Table) {
     }
 
     enum class State {
-        New, Fetch
+        New, Fetch, Delete
     }
 }

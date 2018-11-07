@@ -2,9 +2,19 @@ package com.minek.kotlin.everywhere.ke.sql
 
 import io.reactiverse.pgclient.Row
 
-open class Result(private val row: Row, private val values: List<RowGetter<*>>) {
+open class Result(private val row: Row, values: List<RowGetter<*>>) {
+    private val fields = values
+            .fold(0 to listOf<Any?>()) { (index, fields), rowGetter ->
+                val (consumed, field) = rowGetter.get(row, index)
+                (index + consumed) to (fields + field)
+            }.second
+
     operator fun get(index: Int): Any? {
-        return values[index].get(row, index).second
+        return fields[index]
+    }
+
+    internal fun getTables(): List<Table> {
+        return fields.filterIsInstance(Table::class.java)
     }
 }
 

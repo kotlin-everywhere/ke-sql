@@ -19,7 +19,35 @@ class Session(private val client: PgPool) {
         tables.add(value)
     }
 
+    fun delete(value: Table) {
+        value.tableInstanceMeta.state = TableInstance.State.Delete
+    }
+
     suspend fun flush() {
+        flushDelete()
+        flushInsert()
+    }
+
+    private suspend fun flushDelete() {
+        tables.asSequence()
+                .filter { it.tableInstanceMeta.state == TableInstance.State.Delete }
+                .groupBy { it.tableInstanceMeta.tableMeta }
+                .forEach { (tableMeta, tables) ->
+                    val tuples = tables.map { table ->
+                        Tuple.of(table.tableInstanceMeta.map[tableMeta.meta.primaryKey.name])
+                    }
+                    val deferred = CompletableDeferred<AsyncResult<PgRowSet>>()
+                    val insertQuery = "delete from ${tableMeta.meta.name} where ${tableMeta.meta.primaryKey.name} = $1"
+                    client.preparedBatch(insertQuery, tuples) { ar -> deferred.complete(ar) }
+                    val result = deferred.await()
+                    if (result.failed()) {
+                        throw result.cause()
+                    }
+                    this.tables.removeAll(tables)
+                }
+    }
+
+    private suspend fun flushInsert() {
         tables.asSequence()
                 .filter { it.tableInstanceMeta.state == TableInstance.State.New }
                 .groupBy { it.tableInstanceMeta.tableMeta }
@@ -41,6 +69,7 @@ class Session(private val client: PgPool) {
                     if (result.failed()) {
                         throw result.cause()
                     }
+                    tables.forEach { it.tableInstanceMeta.state = TableInstance.State.Fetch }
                 }
     }
 
@@ -49,7 +78,11 @@ class Session(private val client: PgPool) {
     }
 
     internal fun <T : Result> select(values: List<SelectValue<*>>, mapper: (Row, List<RowGetter<*>>) -> T) =
-            Select(this, values, null, null, mapper)
+            Select(this, values, null, null) { row, getters ->
+                mapper(row, getters).apply {
+                    this@Session.tables.addAll(this.getTables())
+                }
+            }
 
     internal suspend fun preparedQuery(sql: String, arguments: List<Any?>): PgRowSet {
         val deferred = CompletableDeferred<AsyncResult<PgRowSet>>()
