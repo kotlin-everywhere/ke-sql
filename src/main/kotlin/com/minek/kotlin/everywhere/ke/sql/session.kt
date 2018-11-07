@@ -72,12 +72,13 @@ class Session(private val client: PgPool) {
                 .filter { it.tableInstanceMeta.state == TableInstance.State.Delete }
                 .groupBy { it.tableInstanceMeta.tableMeta }
                 .forEach { (tableMeta, tables) ->
-                    val tuples = tables.map { table ->
-                        Tuple.of(table.tableInstanceMeta.map[tableMeta.meta.primaryKey.name])
-                    }
+                    val primaryKeys = tables
+                            .map { table -> table.tableInstanceMeta.map[tableMeta.meta.primaryKey.name] }
+                            .let { tableMeta.meta.primaryKey.type.toArray(it) }
+                            .let { Tuple.of(it) }
                     val deferred = CompletableDeferred<AsyncResult<PgRowSet>>()
-                    val insertQuery = "delete from ${tableMeta.meta.name} where ${tableMeta.meta.primaryKey.name} = $1"
-                    client.preparedBatch(insertQuery, tuples) { ar -> deferred.complete(ar) }
+                    val deleteQuery = "delete from ${tableMeta.meta.name} where ${tableMeta.meta.primaryKey.name} = ANY ($1)"
+                    client.preparedQuery(deleteQuery, primaryKeys) { ar -> deferred.complete(ar) }
                     val result = deferred.await()
                     if (result.failed()) {
                         throw result.cause()
