@@ -56,7 +56,7 @@ class Session(private val client: PgPool) {
                             .filter { !it.primaryKey }
                             .mapIndexed { index, column -> "${column.name} = \$${index + 1}" }
                             .joinToString()
-                    val where = "${tableMeta.meta.primaryKey.name} = \$${tuples.size}"
+                    val where = "${tableMeta.meta.primaryKey.name} = \$${tuples.first().size()}"
                     val updateQuery = "update ${tableMeta.meta.name} set $sets where ($where)"
                     client.preparedBatch(updateQuery, tuples) { ar -> deferred.complete(ar) }
                     val result = deferred.await()
