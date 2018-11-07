@@ -24,8 +24,47 @@ class Session(private val client: PgPool) {
     }
 
     suspend fun flush() {
+        flushUpdate()
         flushDelete()
         flushInsert()
+    }
+
+    private suspend fun flushUpdate() {
+        tables.asSequence()
+                .filter {
+                    it.tableInstanceMeta.state == TableInstance.State.Fetch
+                            && it.tableInstanceMeta.map != it.tableInstanceMeta.previousMap
+                }
+                .groupBy { it.tableInstanceMeta.tableMeta }
+                .forEach { (tableMeta, tables) ->
+                    val tuples = tables.map { table ->
+                        Tuple.tuple().apply {
+                            tableMeta.meta.columns.forEach { column ->
+                                if (!column.primaryKey) {
+                                    addValue(table.tableInstanceMeta.map[column.name])
+                                }
+                            }
+                            addValue(table.tableInstanceMeta.map[tableMeta.meta.primaryKey.name])
+                        }
+                    }
+
+                    val deferred = CompletableDeferred<AsyncResult<PgRowSet>>()
+                    val sets = tableMeta
+                            .meta
+                            .columns
+                            .asSequence()
+                            .filter { !it.primaryKey }
+                            .mapIndexed { index, column -> "${column.name} = \$${index + 1}" }
+                            .joinToString()
+                    val where = "${tableMeta.meta.primaryKey.name} = \$${tuples.size}"
+                    val updateQuery = "update ${tableMeta.meta.name} set $sets where ($where)"
+                    client.preparedBatch(updateQuery, tuples) { ar -> deferred.complete(ar) }
+                    val result = deferred.await()
+                    if (result.failed()) {
+                        throw result.cause()
+                    }
+                    tables.forEach { it.tableInstanceMeta.previousMap = it.tableInstanceMeta.map }
+                }
     }
 
     private suspend fun flushDelete() {
@@ -69,7 +108,10 @@ class Session(private val client: PgPool) {
                     if (result.failed()) {
                         throw result.cause()
                     }
-                    tables.forEach { it.tableInstanceMeta.state = TableInstance.State.Fetch }
+                    tables.forEach {
+                        it.tableInstanceMeta.state = TableInstance.State.Fetch
+                        it.tableInstanceMeta.previousMap = it.tableInstanceMeta.map
+                    }
                 }
     }
 

@@ -33,6 +33,7 @@ abstract class TableMeta<T : Table> : SelectValue<T>, FromValue {
                     instance.tableInstanceMeta.state = TableInstance.State.Fetch
                     instance.tableInstanceMeta.map[it.name] = obj
                 }
+        instance.tableInstanceMeta.previousMap = instance.tableInstanceMeta.map.toMap()
         return consumed to instance
     }
 
@@ -67,6 +68,7 @@ abstract class Table {
 
 class TableInstance(private val table: Table) {
     val map = mutableMapOf<String, Any?>()
+    var previousMap = mapOf<String, Any?>()
     var state = State.New
     val tableMeta by lazy {
         table::class.companionObjectInstance as TableMeta<*>
