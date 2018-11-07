@@ -49,4 +49,36 @@ class TestIntegration {
         assertEquals(2, jane.pk)
         assertEquals("jane", jane.name)
     }
+
+    class Job : Table() {
+        var pk by Job.pk
+        var name by Job.name
+
+        companion object : TableMeta<Job>() {
+            val pk = column(IntType, primaryKey = true, autoIncrement = true)
+            val name = column(StringType, default = "")
+        }
+    }
+
+    @Test
+    fun testInsert() = runBlocking {
+        engine.session().run {
+            add(Job().apply { pk = 1; name = "Pianist" })
+            add(Job().apply { pk = 2; name = "Cook" })
+            flush()
+        }
+
+        val jobs = engine.session()
+                .select(Job)
+                .from(Job)
+                .all()
+                .map { it.component1() }
+                .toList()
+
+        assertEquals(2, jobs.size)
+        assertEquals(1, jobs[0].pk)
+        assertEquals("Pianist", jobs[0].name)
+        assertEquals(2, jobs[1].pk)
+        assertEquals("Cook", jobs[1].name)
+    }
 }

@@ -3,9 +3,7 @@ package com.minek.kotlin.everywhere.ke.sql
 import io.reactiverse.pgclient.Row
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
-import kotlin.reflect.full.isSubclassOf
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.primaryConstructor
+import kotlin.reflect.full.*
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.jvmName
 
@@ -29,6 +27,7 @@ abstract class TableMeta<T : Table> : SelectValue<T>, FromValue {
                 .forEach {
                     val (con, obj) = it.get(row, consumed + index)
                     consumed += con
+                    instance.tableInstanceMeta.state = TableInstance.State.Fetch
                     instance.tableInstanceMeta.map[it.name] = obj
                 }
         return consumed to instance
@@ -54,13 +53,22 @@ internal class TableMetaData<T : TableMeta<*>>(meta: T) {
                             }
                         }
                     }
-    internal val createInstance = Class.forName(meta::class.jvmName!!.removeSuffix("\$Companion")).kotlin.primaryConstructor!!.apply { isAccessible = true }
+    internal val createInstance = Class.forName(meta::class.jvmName.removeSuffix("\$Companion")).kotlin.primaryConstructor!!.apply { isAccessible = true }
 }
 
 abstract class Table {
-    internal val tableInstanceMeta = TableInstance()
+    @Suppress("LeakingThis")
+    internal val tableInstanceMeta = TableInstance(this)
 }
 
-class TableInstance {
+class TableInstance(private val table: Table) {
     val map = mutableMapOf<String, Any?>()
+    var state = State.New
+    val tableMeta by lazy {
+        table::class.companionObjectInstance as TableMeta<*>
+    }
+
+    enum class State {
+        New, Fetch
+    }
 }
