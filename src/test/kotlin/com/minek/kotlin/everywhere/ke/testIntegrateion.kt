@@ -121,8 +121,14 @@ class TestIntegration {
         }
 
         engine.session().run {
+            // Insert
+            engine.session().run {
+                add(Person().apply { pk = 3; name = "hannibal" })
+                flush()
+            }
+
             delete(Person)
-                    .where(Person.pk eq 1.v)
+                    .where((Person.pk eq 1.v) or (Person.pk eq 3.v))
                     .execute()
 
             val people = select(Person)
