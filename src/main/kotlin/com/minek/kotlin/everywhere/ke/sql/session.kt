@@ -19,7 +19,7 @@ class Session(private val client: PgPool) {
         tables.add(value)
     }
 
-    fun delete(value: Table) {
+    fun remove(value: Table) {
         value.tableInstanceMeta.state = TableInstance.State.Delete
     }
 
@@ -27,6 +27,10 @@ class Session(private val client: PgPool) {
         flushUpdate()
         flushDelete()
         flushInsert()
+    }
+
+    fun delete(table: TableMeta<*>): Delete {
+        return Delete(client, table, EmptyCondition)
     }
 
     private suspend fun flushUpdate() {

@@ -39,7 +39,7 @@ data class Select<T : Result>(
 
     private suspend fun query(): PgRowSet {
         val (sqlList, sqlValues) = values.fold(listOf<String>() to listOf<Any?>()) { (sqlList, sqlValues), selectValue ->
-            val (selectSql, selectValues) = selectValue.queryPair(sqlValues.size + 1)
+            val (selectSql, selectValues) = selectValue.queryPair(sqlValues.size + 1) ?: ("null" to listOf())
             sqlList + selectSql to sqlValues + selectValues
         }
         val select = "select ${sqlList.joinToString(", ")}"
@@ -49,9 +49,7 @@ data class Select<T : Result>(
     }
 }
 
-interface SelectValue<T> : RowGetter<T> {
-    fun queryPair(index: Int): Pair<String, List<T>>
-}
+interface SelectValue<T> : Value<T>, RowGetter<T>
 
 interface FromValue {
     fun fromQuery(): String

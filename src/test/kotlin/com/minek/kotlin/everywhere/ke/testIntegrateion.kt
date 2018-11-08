@@ -4,9 +4,10 @@ import com.minek.kotlin.everywhere.ke.sql.*
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class TestIntegration {
-    private val engine = Engine(database = "ke-sql-test", user = System.getProperty("user.name"), host = "/tmp")
+    private val engine = Engine(database = "ke-sql-test", user = System.getProperty("user.name"))
 
     @Test
     fun testOnePlus2() = runBlocking {
@@ -31,13 +32,13 @@ class TestIntegration {
 
     @Test
     fun testCrud() = runBlocking {
-        // delete previous data
+        // remove previous data
         engine.session().run {
             select(Person)
                     .from(Person)
                     .all()
                     .map { it.component1() }
-                    .forEach { delete(it) }
+                    .forEach { remove(it) }
             flush()
         }
 
@@ -103,7 +104,7 @@ class TestIntegration {
                     .all()
                     .map { it.component1() }
                     .toList()[1]
-            delete(jane)
+            remove(jane)
             flush()
         }
 
@@ -118,5 +119,19 @@ class TestIntegration {
             assertEquals(1, person[0].pk)
             assertEquals("was john", person[0].name)
         }
+
+        engine.session().run {
+            delete(Person)
+                    .where(Person.pk eq 1.v)
+                    .execute()
+
+            val people = select(Person)
+                    .from(Person)
+                    .all()
+                    .map { it.component1() }
+                    .toList()
+            assertTrue(people.isEmpty())
+        }
+        Unit
     }
 }
