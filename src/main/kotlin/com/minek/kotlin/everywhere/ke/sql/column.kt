@@ -3,6 +3,10 @@ package com.minek.kotlin.everywhere.ke.sql
 import io.reactiverse.pgclient.Row
 import kotlin.reflect.KProperty
 
+/**
+ * Table Column Model
+ */
+
 class Column<T>(
         val tableMeta: TableMeta<*>,
         val type: Type<T>,
