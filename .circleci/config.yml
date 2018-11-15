@@ -26,9 +26,9 @@ jobs:
 
       - run: sudo apt-get install postgresql-client
 
-      - run: sudo createuser -s circleci
+      - run: sudo createuser -h localhost -p 5432 -s circleci
 
-      - run: createdb ke-sql-test
+      - run: createdb -h localhost -p 5432 ke-sql-test
 
       - restore_cache:
           keys:
