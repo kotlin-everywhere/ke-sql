@@ -35,4 +35,4 @@ jobs:
             - ~/.gradle
           key: v1-dependencies-{{ checksum "build.gradle" }}
 
-      - run: gradle test --info ||(cat file:///home/circleci/repo/build/reports/tests/test/index.html && false)
+      - run: gradle test --info ||(cat /home/circleci/repo/build/reports/tests/test/index.html && false)
