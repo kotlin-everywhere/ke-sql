@@ -4,13 +4,13 @@ jobs:
     docker:
       - image: circleci/openjdk:8-jdk
       - image: circleci/postgres:9.6.2-alpine
-        enviroment:
-          POSTGRES_USER: circleci
-          POSTGRES_DB: ke-sql-test
+
     working_directory: ~/repo
+
     environment:
       JVM_OPTS: -Xmx3200m
       TERM: dumb
+
     steps:
       - checkout
 
@@ -19,9 +19,14 @@ jobs:
           command: wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
           environment:
             DOCKERIZE_VERSION: v0.3.0
+
       - run:
           name: Wait for db
           command: dockerize -wait tcp://localhost:5432 -timeout 1m
+
+      - run: createuser -s circleci
+
+      - run: createdb ke-sql-test
 
       - restore_cache:
           keys:
@@ -35,4 +40,4 @@ jobs:
             - ~/.gradle
           key: v1-dependencies-{{ checksum "build.gradle" }}
 
-      - run: gradle test --info ||(cat /home/circleci/repo/build/reports/tests/test/index.html && false)
+      - run: gradle test --info
