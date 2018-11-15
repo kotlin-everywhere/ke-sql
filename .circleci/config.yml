@@ -30,6 +30,8 @@ jobs:
 
       - run: createdb -h localhost -p 5432 ke-sql-test
 
+      - run: psql -h localhost -p 5432 ke-sql-test < ~/repo/src/main/test/kotlin/com/minek/kotlin/everywhere/ke/sql/person.sql
+
       - restore_cache:
           keys:
           - v1-dependencies-{{ checksum "build.gradle" }}
