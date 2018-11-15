@@ -24,7 +24,9 @@ jobs:
           name: Wait for db
           command: dockerize -wait tcp://localhost:5432 -timeout 1m
 
-      - run: createuser -s circleci
+      - run: sudo apt-get install postgresql-client
+
+      - run: sudo createuser -s circleci
 
       - run: createdb ke-sql-test
 
