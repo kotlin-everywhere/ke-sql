@@ -1,10 +1,13 @@
 package com.minek.kotlin.everywhere.ke.sql
 
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
+import kotlinx.coroutines.withContext
+import java.sql.Connection
 import java.sql.ResultSet
 import javax.sql.DataSource
 
 
-class Session(private val dataSource: DataSource) {
+class Session(private val ctx: ExecutorCoroutineDispatcher, private val dataSource: DataSource) {
     private val tables = mutableListOf<Table>()
 
     fun select(values: List<SelectValue<*>>): Select<Result> =
@@ -25,7 +28,13 @@ class Session(private val dataSource: DataSource) {
     }
 
     fun delete(table: TableMeta<*>): Delete {
-        return Delete(dataSource, table, EmptyCondition)
+        return Delete(this, table, EmptyCondition)
+    }
+
+    internal suspend inline fun <T> io(crossinline block: (connection: Connection) -> T): T {
+        return withContext(ctx) {
+            dataSource.connection.use(block)
+        }
     }
 
     private suspend fun flushUpdate() {
@@ -43,7 +52,7 @@ class Session(private val dataSource: DataSource) {
                                     .joinToString()
                     val where = "${tableMeta.meta.primaryKey.name} = ?"
                     val updateQuery = "update ${tableMeta.meta.name} set $sets where ($where)"
-                    dataSource.connection.use { connection ->
+                    io { connection ->
                         connection.prepareStatement(updateQuery).use { statement ->
                             tables.forEach { table ->
                                 valueColumns.forEachIndexed { index, column ->
@@ -70,7 +79,7 @@ class Session(private val dataSource: DataSource) {
                     val primaryKeyValues = Array(tables.size) { index ->
                         tables[index].tableInstanceMeta.map[tableMeta.meta.primaryKey.name]
                     }
-                    dataSource.connection.use { connection ->
+                    io { connection ->
                         val primaryKeys = (tableMeta.meta.primaryKey.type as Type<Any?>).arrayOf(connection, primaryKeyValues)
                         val deleteQuery = "delete from ${tableMeta.meta.name} where ${tableMeta.meta.primaryKey.name} = ANY (?)"
                         connection.prepareStatement(deleteQuery).use { statement ->
@@ -90,7 +99,7 @@ class Session(private val dataSource: DataSource) {
                     val columns = tableMeta.meta.columns.joinToString() { it.name }
                     val values = (1..tableMeta.meta.columns.size).joinToString(",") { "?" }
                     val insertQuery = "insert into ${tableMeta.meta.name} ($columns) values ($values)"
-                    dataSource.connection.use { connection ->
+                    io { connection ->
                         connection.prepareStatement(insertQuery).use { statement ->
                             tables.forEach { table ->
                                 tableMeta.meta.columns.forEachIndexed { index, column ->
@@ -120,7 +129,7 @@ class Session(private val dataSource: DataSource) {
             }
 
     internal suspend fun <T> preparedQuery(sql: String, arguments: List<Pair<StatementSetter<Any?>, Any?>>, resultMapper: (ResultSet) -> T): T {
-        return dataSource.connection.use { connection ->
+        return io { connection ->
             connection.prepareStatement(sql).use { preparedStatement ->
                 arguments.forEachIndexed { index, (type, value) ->
                     type.set(preparedStatement, index + 1, value)
