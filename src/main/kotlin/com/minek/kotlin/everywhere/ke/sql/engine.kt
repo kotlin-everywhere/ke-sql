@@ -50,8 +50,7 @@ class Engine(database: String, user: String, password: String? = null, host: Str
             val t = Thread(group, r,
                     namePrefix + threadNumber.getAndIncrement(),
                     0)
-            if (t.isDaemon)
-                t.isDaemon = false
+            t.isDaemon = true
             if (t.priority != Thread.NORM_PRIORITY)
                 t.priority = Thread.NORM_PRIORITY
             return t
