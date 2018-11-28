@@ -1,22 +1,20 @@
 package com.minek.kotlin.everywhere.ke.sql
 
-import io.reactiverse.pgclient.PgClient
-import io.reactiverse.pgclient.PgPoolOptions
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 
 class Engine(database: String, user: String, password: String? = null, host: String? = null, maxSize: Int = 5, sendBufferSize: Int? = null) {
-    private val client = PgPoolOptions()
-            .run { if (host != null) setHost(host) else this }
-            .setPort(5432)
-            .setDatabase(database)
-            .setUser(user)
-            .run { if (password != null) setPassword(password) else this }
-            .setMaxSize(maxSize)
-            .run { if (sendBufferSize != null) setSendBufferSize(sendBufferSize) else this }
-            .let(PgClient::pool)
+    private val dataSource =
+            HikariConfig().apply {
+                jdbcUrl = "jdbc:postgresql://localhost:5432/$database"
+                username = user
+                if (password != null) {
+                    this.password = password
+                }
+                isAutoCommit = true
+            }.let(::HikariDataSource)
 
     fun session(): Session {
-        return Session(client = client)
+        return Session(dataSource = dataSource)
     }
-
-    fun close() = client.close()
 }

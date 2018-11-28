@@ -3,13 +3,13 @@ package com.minek.kotlin.everywhere.ke.sql
 interface Condition : QueryPair
 
 object EmptyCondition : Condition {
-    override fun queryPair(index: Int): Pair<String, List<Any?>>? {
+    override fun queryPair(index: Int): Pair<String, List<Pair<Type<Any?>, Any?>>>? {
         return null
     }
 }
 
 class AndCondition(private val left: Condition, private val right: Condition) : Condition {
-    override fun queryPair(index: Int): Pair<String, List<Any?>>? {
+    override fun queryPair(index: Int): Pair<String, List<Pair<StatementSetter<Any?>, Any?>>>? {
         val leftSql = left.queryPair(index)
         val rightSql = right.queryPair(index + (leftSql?.second?.size ?: 0))
         if (leftSql == null) {
@@ -23,7 +23,7 @@ class AndCondition(private val left: Condition, private val right: Condition) : 
 }
 
 class OrCondition(private val left: Condition, private val right: Condition) : Condition {
-    override fun queryPair(index: Int): Pair<String, List<Any?>>? {
+    override fun queryPair(index: Int): Pair<String, List<Pair<StatementSetter<Any?>, Any?>>>? {
         val leftSql = left.queryPair(index)
         val rightSql = right.queryPair(index + (leftSql?.second?.size ?: 0))
         if (leftSql == null) {

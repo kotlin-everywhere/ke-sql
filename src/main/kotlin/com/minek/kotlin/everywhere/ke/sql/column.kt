@@ -1,6 +1,7 @@
 package com.minek.kotlin.everywhere.ke.sql
 
-import io.reactiverse.pgclient.Row
+import java.sql.PreparedStatement
+import java.sql.ResultSet
 import kotlin.reflect.KProperty
 
 /**
@@ -15,11 +16,15 @@ class Column<T>(
         val autoIncrement: Boolean = false,
         val default: T? = null
 ) : SelectValue<T>, OrderByValue {
-    override fun queryPair(index: Int): Pair<String, List<T>> {
+    override fun set(statement: PreparedStatement, index: Int, value: T) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun queryPair(index: Int): Pair<String, List<Pair<Type<Any?>, Any?>>> {
         return "${tableMeta.meta.name}.$name" to listOf()
     }
 
-    override fun get(row: Row, index: Int): Pair<Int, T> {
+    override fun get(row: ResultSet, index: Int): Pair<Int, T> {
         return type.get(row, index)
     }
 
@@ -34,7 +39,7 @@ class Column<T>(
         table.tableInstanceMeta.map[property.name] = value
     }
 
-    override fun orderByQuery(index: Int): Pair<String, List<T>> {
+    override fun orderByQuery(index: Int): Pair<String, List<Pair<Type<Any?>, Any?>>> {
         return queryPair(index)
     }
 }

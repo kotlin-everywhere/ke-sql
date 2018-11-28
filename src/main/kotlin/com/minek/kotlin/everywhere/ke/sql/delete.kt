@@ -1,13 +1,8 @@
 package com.minek.kotlin.everywhere.ke.sql
 
-import io.reactiverse.pgclient.PgPool
-import io.reactiverse.pgclient.PgRowSet
-import io.reactiverse.pgclient.impl.ArrayTuple
-import io.vertx.core.AsyncResult
-import io.vertx.core.Handler
-import kotlinx.coroutines.CompletableDeferred
+import javax.sql.DataSource
 
-data class Delete(private val pgPool: PgPool, private val from: TableMeta<*>, private val where: Condition) {
+data class Delete(private val dataSource: DataSource, private val from: TableMeta<*>, private val where: Condition) {
     fun where(condition: Condition): Delete {
         return copy(where = where and condition)
     }
@@ -17,30 +12,18 @@ data class Delete(private val pgPool: PgPool, private val from: TableMeta<*>, pr
         val whereSql = where.queryPair(1)
 
         if (whereSql == null) {
-            val deferred = PgDeferred()
-            pgPool.query(deleteFrom, deferred)
-            deferred.wait()
+            dataSource.connection.createStatement().use { statement ->
+                statement.execute(deleteFrom)
+            }
             return
         }
 
-        val deferred = PgDeferred()
-        pgPool.preparedQuery("$deleteFrom where ${whereSql.first}", ArrayTuple(whereSql.second), deferred)
-        deferred.wait()
-    }
-}
-
-
-class PgDeferred : Handler<AsyncResult<PgRowSet>> {
-    private val deferred = CompletableDeferred<AsyncResult<PgRowSet>>()
-    override fun handle(event: AsyncResult<PgRowSet>) {
-        deferred.complete(event)
-    }
-
-    suspend fun wait(): PgRowSet {
-        val result = deferred.await()
-        if (result.failed()) {
-            throw result.cause()
+        dataSource.connection.prepareStatement("$deleteFrom where ${whereSql.first}").use { preparedStatement ->
+            whereSql.second.forEachIndexed { index, (type, value) ->
+                type.set(preparedStatement, index + 1, value)
+            }
+            preparedStatement.execute()
         }
-        return result.result()
     }
 }
+

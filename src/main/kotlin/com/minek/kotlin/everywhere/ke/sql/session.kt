@@ -1,15 +1,10 @@
 package com.minek.kotlin.everywhere.ke.sql
 
-import io.reactiverse.pgclient.PgPool
-import io.reactiverse.pgclient.PgRowSet
-import io.reactiverse.pgclient.Row
-import io.reactiverse.pgclient.Tuple
-import io.reactiverse.pgclient.impl.ArrayTuple
-import io.vertx.core.AsyncResult
-import kotlinx.coroutines.CompletableDeferred
+import java.sql.ResultSet
+import javax.sql.DataSource
 
 
-class Session(private val client: PgPool) {
+class Session(private val dataSource: DataSource) {
     private val tables = mutableListOf<Table>()
 
     fun select(values: List<SelectValue<*>>): Select<Result> =
@@ -30,7 +25,7 @@ class Session(private val client: PgPool) {
     }
 
     fun delete(table: TableMeta<*>): Delete {
-        return Delete(client, table, EmptyCondition)
+        return Delete(dataSource, table, EmptyCondition)
     }
 
     private suspend fun flushUpdate() {
@@ -41,32 +36,28 @@ class Session(private val client: PgPool) {
                 }
                 .groupBy { it.tableInstanceMeta.tableMeta }
                 .forEach { (tableMeta, tables) ->
-                    val tuples = tables.map { table ->
-                        Tuple.tuple().apply {
-                            tableMeta.meta.columns.forEach { column ->
-                                if (!column.primaryKey) {
-                                    addValue(table.tableInstanceMeta.map[column.name])
+                    val valueColumns = tableMeta.meta.columns.filter { !it.primaryKey }
+                    val sets =
+                            valueColumns
+                                    .mapIndexed { index, column -> "${column.name} = ?" }
+                                    .joinToString()
+                    val where = "${tableMeta.meta.primaryKey.name} = ?"
+                    val updateQuery = "update ${tableMeta.meta.name} set $sets where ($where)"
+                    dataSource.connection.use { connection ->
+                        connection.prepareStatement(updateQuery).use { statement ->
+                            tables.forEach { table ->
+                                valueColumns.forEachIndexed { index, column ->
+                                    if (!column.primaryKey) {
+                                        (column.type as Type<Any?>).set(statement, index + 1, table.tableInstanceMeta.map[column.name])
+                                    }
                                 }
+                                (tableMeta.meta.primaryKey.type as Type<Any?>).set(statement, valueColumns.size + 1, table.tableInstanceMeta.map[tableMeta.meta.primaryKey.name])
+                                statement.addBatch()
                             }
-                            addValue(table.tableInstanceMeta.map[tableMeta.meta.primaryKey.name])
+                            statement.executeBatch()
                         }
                     }
 
-                    val deferred = CompletableDeferred<AsyncResult<PgRowSet>>()
-                    val sets = tableMeta
-                            .meta
-                            .columns
-                            .asSequence()
-                            .filter { !it.primaryKey }
-                            .mapIndexed { index, column -> "${column.name} = \$${index + 1}" }
-                            .joinToString()
-                    val where = "${tableMeta.meta.primaryKey.name} = \$${tuples.first().size()}"
-                    val updateQuery = "update ${tableMeta.meta.name} set $sets where ($where)"
-                    client.preparedBatch(updateQuery, tuples) { ar -> deferred.complete(ar) }
-                    val result = deferred.await()
-                    if (result.failed()) {
-                        throw result.cause()
-                    }
                     tables.forEach { it.tableInstanceMeta.previousMap = it.tableInstanceMeta.map }
                 }
     }
@@ -76,16 +67,16 @@ class Session(private val client: PgPool) {
                 .filter { it.tableInstanceMeta.state == TableInstance.State.Delete }
                 .groupBy { it.tableInstanceMeta.tableMeta }
                 .forEach { (tableMeta, tables) ->
-                    val primaryKeys = tables
-                            .map { table -> table.tableInstanceMeta.map[tableMeta.meta.primaryKey.name] }
-                            .let { tableMeta.meta.primaryKey.type.toArray(it) }
-                            .let { Tuple.of(it) }
-                    val deferred = CompletableDeferred<AsyncResult<PgRowSet>>()
-                    val deleteQuery = "delete from ${tableMeta.meta.name} where ${tableMeta.meta.primaryKey.name} = ANY ($1)"
-                    client.preparedQuery(deleteQuery, primaryKeys) { ar -> deferred.complete(ar) }
-                    val result = deferred.await()
-                    if (result.failed()) {
-                        throw result.cause()
+                    val primaryKeyValues = Array(tables.size) { index ->
+                        tables[index].tableInstanceMeta.map[tableMeta.meta.primaryKey.name]
+                    }
+                    dataSource.connection.use { connection ->
+                        val primaryKeys = (tableMeta.meta.primaryKey.type as Type<Any?>).arrayOf(connection, primaryKeyValues)
+                        val deleteQuery = "delete from ${tableMeta.meta.name} where ${tableMeta.meta.primaryKey.name} = ANY (?)"
+                        connection.prepareStatement(deleteQuery).use { statement ->
+                            statement.setArray(1, primaryKeys)
+                            statement.execute()
+                        }
                     }
                     this.tables.removeAll(tables)
                 }
@@ -96,22 +87,19 @@ class Session(private val client: PgPool) {
                 .filter { it.tableInstanceMeta.state == TableInstance.State.New }
                 .groupBy { it.tableInstanceMeta.tableMeta }
                 .forEach { (tableMeta, tables) ->
-                    val tuples = tables.map { table ->
-                        Tuple.tuple().apply {
-                            tableMeta.meta.columns.forEach { column ->
-                                addValue(table.tableInstanceMeta.map[column.name])
-                            }
-                        }
-
-                    }
-                    val deferred = CompletableDeferred<AsyncResult<PgRowSet>>()
                     val columns = tableMeta.meta.columns.joinToString() { it.name }
-                    val values = (1..tableMeta.meta.columns.size).joinToString(",") { "\$$it" }
+                    val values = (1..tableMeta.meta.columns.size).joinToString(",") { "?" }
                     val insertQuery = "insert into ${tableMeta.meta.name} ($columns) values ($values)"
-                    client.preparedBatch(insertQuery, tuples) { ar -> deferred.complete(ar) }
-                    val result = deferred.await()
-                    if (result.failed()) {
-                        throw result.cause()
+                    dataSource.connection.use { connection ->
+                        connection.prepareStatement(insertQuery).use { statement ->
+                            tables.forEach { table ->
+                                tableMeta.meta.columns.forEachIndexed { index, column ->
+                                    (column.type as Type<Any?>).set(statement, index + 1, table.tableInstanceMeta.map[column.name])
+                                }
+                                statement.addBatch()
+                            }
+                            statement.executeBatch()
+                        }
                     }
                     tables.forEach {
                         it.tableInstanceMeta.state = TableInstance.State.Fetch
@@ -124,21 +112,22 @@ class Session(private val client: PgPool) {
         tables.clear()
     }
 
-    internal fun <T : Result> select(values: List<SelectValue<*>>, mapper: (Row, List<RowGetter<*>>) -> T) =
+    internal fun <T : Result> select(values: List<SelectValue<*>>, mapper: (ResultSet, List<RowGetter<*>>) -> T) =
             Select(this, values, null, null) { row, getters ->
                 mapper(row, getters).apply {
                     this@Session.tables.addAll(this.getTables())
                 }
             }
 
-    internal suspend fun preparedQuery(sql: String, arguments: List<Any?>): PgRowSet {
-        val deferred = CompletableDeferred<AsyncResult<PgRowSet>>()
-        client.preparedQuery(sql, ArrayTuple(arguments)) { deferred.complete(it) }
-        val result = deferred.await()
-        if (result.failed()) {
-            throw result.cause()
+    internal suspend fun <T> preparedQuery(sql: String, arguments: List<Pair<StatementSetter<Any?>, Any?>>, resultMapper: (ResultSet) -> T): T {
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { preparedStatement ->
+                arguments.forEachIndexed { index, (type, value) ->
+                    type.set(preparedStatement, index + 1, value)
+                }
+                preparedStatement.executeQuery().use(resultMapper)
+            }
         }
-        return result.result()
     }
 }
 

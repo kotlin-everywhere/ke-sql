@@ -1,6 +1,7 @@
 package com.minek.kotlin.everywhere.ke.sql
 
-import io.reactiverse.pgclient.Row
+import java.sql.PreparedStatement
+import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.companionObjectInstance
@@ -17,12 +18,12 @@ abstract class TableMeta<T : Table> : SelectValue<T>, FromValue {
         return Column(this, type, name, primaryKey, autoIncrement, default)
     }
 
-    override fun queryPair(index: Int): Pair<String, List<T>> {
+    override fun queryPair(index: Int):  Pair<String, List<Pair<Type<Any?>, Any?>>>? {
         return meta.columns
                 .joinToString(", ") { "${meta.name}.${it.name}" } to listOf()
     }
 
-    override fun get(row: Row, index: Int): Pair<Int, T> {
+    override fun get(row: ResultSet, index: Int): Pair<Int, T> {
         var consumed = 0
         val instance = meta.createInstance.call() as T
         meta
@@ -35,6 +36,10 @@ abstract class TableMeta<T : Table> : SelectValue<T>, FromValue {
                 }
         instance.tableInstanceMeta.previousMap = instance.tableInstanceMeta.map.toMap()
         return consumed to instance
+    }
+
+    override fun set(statement: PreparedStatement, index: Int, value: T) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 
     override fun fromQuery(): String {
