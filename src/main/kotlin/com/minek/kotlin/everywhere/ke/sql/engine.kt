@@ -17,4 +17,8 @@ class Engine(database: String, user: String, password: String? = null, host: Str
     fun session(): Session {
         return Session(dataSource = dataSource)
     }
+
+    fun close() {
+        dataSource.close()
+    }
 }
