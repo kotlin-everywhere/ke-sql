@@ -12,17 +12,21 @@ data class Delete(private val dataSource: DataSource, private val from: TableMet
         val whereSql = where.queryPair(1)
 
         if (whereSql == null) {
-            dataSource.connection.createStatement().use { statement ->
-                statement.execute(deleteFrom)
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute(deleteFrom)
+                }
             }
             return
         }
 
-        dataSource.connection.prepareStatement("$deleteFrom where ${whereSql.first}").use { preparedStatement ->
-            whereSql.second.forEachIndexed { index, (type, value) ->
-                type.set(preparedStatement, index + 1, value)
+        dataSource.connection.use { connection ->
+            connection.prepareStatement("$deleteFrom where ${whereSql.first}").use { preparedStatement ->
+                whereSql.second.forEachIndexed { index, (type, value) ->
+                    type.set(preparedStatement, index + 1, value)
+                }
+                preparedStatement.execute()
             }
-            preparedStatement.execute()
         }
     }
 }
