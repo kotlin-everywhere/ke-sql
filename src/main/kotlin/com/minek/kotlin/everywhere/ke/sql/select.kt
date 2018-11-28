@@ -43,7 +43,6 @@ data class Select<T : Result>(
             sqlList + selectSql to sqlValues + selectValues
         }
         val select = "select ${sqlList.joinToString(", ")}"
-        println("select query = $select")
         val from = if (from != null) "from ${from.fromQuery()}" else null
         val orderBy = if (orderBy != null) "order by ${orderBy.orderByQuery(sqlValues.size + 1).first}" else null
         return session.preparedQuery(listOfNotNull(select, from, orderBy).joinToString(" "), sqlValues)
