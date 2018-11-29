@@ -2,6 +2,8 @@ package com.minek.kotlin.everywhere.ke.sql
 
 import java.sql.PreparedStatement
 import java.sql.ResultSet
+import java.util.*
+import kotlin.collections.HashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.companionObjectInstance
@@ -72,7 +74,7 @@ abstract class Table {
 }
 
 class TableInstance(private val table: Table) {
-    val map = mutableMapOf<String, Any?>()
+    val map = HashMap<String, Any?>()
     var previousMap = mapOf<String, Any?>()
     var state = State.New
     val tableMeta by lazy {
